@@ -1,16 +1,27 @@
-import { Message } from '../types';
+import { Message, UserProfile } from '../types';
 import type { User } from 'firebase/auth';
 import ReactMarkdown from 'react-markdown';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { motion } from 'motion/react';
+import { db } from '../lib/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
 
 interface MessageListProps {
   messages: Message[];
   currentUser: User;
+  profile: UserProfile;
 }
 
-export default function MessageList({ messages, currentUser }: MessageListProps) {
+export default function MessageList({ messages, currentUser, profile }: MessageListProps) {
+  const deleteMessage = async (messageId: string, roomId: string) => {
+    try {
+      await deleteDoc(doc(db, `rooms/${roomId}/messages`, messageId));
+    } catch (error) {
+      console.error("Mesaj silme hatası:", error);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {messages.map((msg, index) => {
@@ -33,6 +44,14 @@ export default function MessageList({ messages, currentUser }: MessageListProps)
               <span className="text-[10px] font-mono text-zinc-700">
                 {msg.createdAt?.toDate ? format(msg.createdAt.toDate(), 'HH:mm', { locale: tr }) : ''}
               </span>
+              {(isMe || profile.role === 'admin' || profile.role === 'moderator') && (
+                <button 
+                  onClick={() => deleteMessage(msg.id, msg.roomId)}
+                  className="text-[10px] font-black text-red-500 hover:text-red-400 uppercase tracking-widest ml-2"
+                >
+                  Sil
+                </button>
+              )}
             </div>
 
             <div

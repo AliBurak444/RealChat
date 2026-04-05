@@ -20,12 +20,19 @@ export default function App() {
         if (user) {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
-            setProfile(userDoc.data() as UserProfile);
+            const data = userDoc.data() as UserProfile;
+            if (data.displayName === 'Anonim') {
+              const updatedProfile = { ...data, displayName: user.email?.split('@')[0] || 'Anonim' };
+              await setDoc(doc(db, 'users', user.uid), updatedProfile);
+              setProfile(updatedProfile);
+            } else {
+              setProfile(data);
+            }
           } else {
             const newProfile: UserProfile = {
               uid: user.uid,
               email: user.email || '',
-              displayName: user.displayName || 'Anonim',
+              displayName: user.displayName || user.email?.split('@')[0] || 'Anonim',
               photoURL: user.photoURL || `https://ui-avatars.com/api/?name=${user.email}`,
               role: user.email === 'aliburakmumcuoglu31@gmail.com' ? 'admin' : 'user',
               createdAt: serverTimestamp(),

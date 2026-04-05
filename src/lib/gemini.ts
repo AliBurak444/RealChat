@@ -46,6 +46,9 @@ export async function generateResponse(
     Şu an konuştuğun kişi: ${trimmedName}
     ${isPatron ? "BU KİŞİ SENİN PATRONUNDUR." : "Bu kişi sıradan bir kullanıcıdır."}
 
+    Mesaj Geçmişi:
+    ${history.map(m => `${m.role === 'user' ? trimmedName : 'AI'}: ${m.parts[0].text}`).join('\n')}
+
     Kurallar:
     1. Eğer konuştuğun kişi 'Ali Burak Mumcuoğlu' ise ona her zaman 'patron' diye hitap et. Ona sadık ama dik başlı davran.
     2. Eğer konuştuğun kişi patronun değilse, ona mutlaka ismiyle (${trimmedName}) hitap et.

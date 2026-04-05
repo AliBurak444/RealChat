@@ -35,31 +35,9 @@ export default function Chat({ user, profile }: ChatProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
-  const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const handleDeleteAccount = async () => {
-    if (!auth.currentUser) return;
-    
-    try {
-      // 1. Delete Firestore user document
-      await deleteDoc(doc(db, 'users', auth.currentUser.uid));
-      
-      // 2. Delete Auth user
-      await deleteUser(auth.currentUser);
-      
-      setIsDeleteAccountModalOpen(false);
-    } catch (error: any) {
-      console.error('Hesap silme hatası:', error);
-      if (error.code === 'auth/requires-recent-login') {
-        alert('Bu işlem için yakın zamanda giriş yapmış olmanız gerekiyor. Lütfen çıkış yapıp tekrar girin.');
-      } else {
-        alert('Hesap silinirken bir hata oluştu: ' + error.message);
-      }
-    }
-  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -272,14 +250,6 @@ export default function Chat({ user, profile }: ChatProps) {
             </div>
             
             <button 
-              onClick={() => setIsDeleteAccountModalOpen(true)}
-              className="p-2.5 bg-zinc-800/40 hover:bg-red-900/20 text-zinc-600 hover:text-red-400 rounded-xl transition-all border border-white/5 group shadow-lg"
-              title="Hesabı Sil"
-            >
-              <Trash2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            </button>
-
-            <button 
               onClick={() => auth.signOut()}
               className="p-2.5 bg-zinc-800/40 hover:bg-red-900/20 text-zinc-600 hover:text-red-400 rounded-xl transition-all border border-white/5 group shadow-lg"
               title="Çıkış Yap"
@@ -293,7 +263,7 @@ export default function Chat({ user, profile }: ChatProps) {
         <main className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide flex flex-col">
           {activeRoom ? (
             <>
-              <MessageList messages={messages} currentUser={user} />
+              <MessageList messages={messages} currentUser={user} profile={profile} />
               {isTyping && (
                 <div className="flex items-center gap-2 text-xs text-zinc-500 animate-pulse">
                   <Brain className="w-4 h-4" />

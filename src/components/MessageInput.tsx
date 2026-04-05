@@ -46,10 +46,18 @@ export default function MessageInput({ onSendMessage }: MessageInputProps) {
         />
         <div className="flex items-center justify-between px-4 pb-3">
           <div className="flex items-center gap-3">
-            <button type="button" className="p-1.5 text-zinc-500 hover:text-blue-400 transition-colors bg-zinc-800/50 rounded-lg border border-zinc-700/50">
+            <button 
+              type="button" 
+              onClick={() => setText(prev => prev + '/imagine ')}
+              className="p-1.5 text-zinc-500 hover:text-blue-400 transition-colors bg-zinc-800/50 rounded-lg border border-zinc-700/50"
+            >
               <ImageIcon className="w-4 h-4" />
             </button>
-            <button type="button" className="p-1.5 text-zinc-500 hover:text-yellow-400 transition-colors bg-zinc-800/50 rounded-lg border border-zinc-700/50">
+            <button 
+              type="button" 
+              onClick={() => setText(prev => prev + '🙂')}
+              className="p-1.5 text-zinc-500 hover:text-yellow-400 transition-colors bg-zinc-800/50 rounded-lg border border-zinc-700/50"
+            >
               <Smile className="w-4 h-4" />
             </button>
           </div>
