@@ -12,14 +12,8 @@ declare global {
 }
 
 function getAI() {
-  // Patronun verdiği ana anahtar
-  const mainKey = "AIzaSyCepx9syY-STHHO3FNyb9BCts6-UnryNbI";
-  
-  // Vite ortamında process.env her zaman tanımlı olmayabilir, bu yüzden güvenli kontrol yapıyoruz
-  const envGeminiKey = typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined;
-  const envApiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
-  
-  const apiKey = mainKey || envGeminiKey || envApiKey;
+  // Ortam değişkeninden anahtarı al
+  const apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
     throw new Error("API Anahtarı bulunamadı! Lütfen yapılandırmayı kontrol edin.");
