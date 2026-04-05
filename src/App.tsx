@@ -15,26 +15,34 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          setProfile(userDoc.data() as UserProfile);
+      try {
+        setUser(user);
+        if (user) {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setProfile(userDoc.data() as UserProfile);
+          } else {
+            const newProfile: UserProfile = {
+              uid: user.uid,
+              email: user.email || '',
+              displayName: user.displayName || 'Anonim',
+              photoURL: user.photoURL || `https://ui-avatars.com/api/?name=${user.email}`,
+              role: user.email === 'aliburakmumcuoglu31@gmail.com' ? 'admin' : 'user',
+              createdAt: serverTimestamp(),
+            };
+            await setDoc(doc(db, 'users', user.uid), newProfile);
+            setProfile(newProfile);
+          }
         } else {
-          const newProfile: UserProfile = {
-            uid: user.uid,
-            email: user.email || '',
-            displayName: user.displayName || 'Anonim',
-            photoURL: user.photoURL || `https://ui-avatars.com/api/?name=${user.email}`,
-            role: user.email === 'aliburakmumcuoglu31@gmail.com' ? 'admin' : 'user',
-            createdAt: serverTimestamp(),
-          };
-          await setDoc(doc(db, 'users', user.uid), newProfile);
-          setProfile(newProfile);
+          setProfile(null);
         }
-      } else {
-        setProfile(null);
+      } catch (error) {
+        console.error("Auth state change error:", error);
+      } finally {
+        setLoading(false);
       }
+    }, (error) => {
+      console.error("Auth observer error:", error);
       setLoading(false);
     });
 

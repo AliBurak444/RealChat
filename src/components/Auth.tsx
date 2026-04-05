@@ -4,7 +4,6 @@ import {
   signInWithPopup, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  sendEmailVerification, 
   sendPasswordResetEmail 
 } from 'firebase/auth';
 import { LogIn, Mail, Lock, UserPlus, Github, Hash } from 'lucide-react';
@@ -39,9 +38,8 @@ export default function Auth() {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await sendEmailVerification(userCredential.user);
-        setMessage('Doğrulama e-postası gönderildi. Lütfen kontrol edin.');
+        await createUserWithEmailAndPassword(auth, email, password);
+        setMessage('Hesabınız başarıyla oluşturuldu!');
       }
     } catch (err: any) {
       setError(err.message);
