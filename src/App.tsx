@@ -6,7 +6,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import Auth from './components/Auth';
 import Chat from './components/Chat';
 import { UserProfile } from './types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -48,6 +48,20 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+  if (!auth || !db) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-zinc-950 p-8 text-center">
+        <div className="w-20 h-20 bg-red-900/20 rounded-3xl flex items-center justify-center mb-6 border border-red-500/20">
+          <X className="w-10 h-10 text-red-500" />
+        </div>
+        <h1 className="text-2xl font-black text-white mb-4">Yapılandırma Hatası</h1>
+        <p className="text-zinc-500 max-w-md">
+          Firebase yapılandırması yüklenemedi. Lütfen <code className="bg-zinc-900 px-2 py-1 rounded">firebase-applet-config.json</code> dosyasının doğru olduğundan ve GitHub'a yüklendiğinden emin olun.
+        </p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

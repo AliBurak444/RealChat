@@ -17,6 +17,10 @@ export default function Auth() {
   const [message, setMessage] = useState('');
 
   const handleGoogleSignIn = async () => {
+    if (!auth) {
+      setError("Firebase yapılandırması eksik! Lütfen yönetici ile iletişime geçin.");
+      return;
+    }
     setError('');
     try {
       await signInWithPopup(auth, googleProvider);
@@ -32,6 +36,10 @@ export default function Auth() {
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth) {
+      setError("Firebase yapılandırması eksik! Lütfen yönetici ile iletişime geçin.");
+      return;
+    }
     setError('');
     setMessage('');
     try {
