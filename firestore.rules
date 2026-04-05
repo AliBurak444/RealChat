@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, email, displayName, photoURL, role, createdAt
+    //
+    // Collection: rooms
+    // Fields: id, name, createdBy, createdAt, members (array)
+    //
+    // Collection: rooms/{roomId}/messages
+    // Fields: id, roomId, senderId, senderName, text, type, imageUrl, createdAt
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+         (request.auth.token.email == "aliburakmumcuoglu31@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string && data.email is string &&
+             data.role in ['admin', 'user'];
+    }
+
+    function isValidRoom(data) {
+      return data.keys().hasAll(['name', 'createdBy', 'members']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.members is list && data.members.size() <= 30;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['roomId', 'senderId', 'text', 'type']) &&
+             data.text is string && data.text.size() < 5000;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /rooms/{roomId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidRoom(request.resource.data);
+      allow update: if isAuthenticated() && (request.auth.uid in resource.data.members || isAdmin());
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.createdBy == request.auth.uid);
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isValidMessage(request.resource.data);
+      }
+    }
+  }
+}
