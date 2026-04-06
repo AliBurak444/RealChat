@@ -13,6 +13,10 @@ export interface ChatRoom {
   createdBy: string;
   createdAt: any;
   members: string[]; // max 30
+  mode?: 'soft' | 'good' | 'angry';
+  messageCount?: number;
+  aiRole?: string;
+  isPermanentMemoryEnabled?: boolean;
 }
 
 export interface Message {
@@ -21,7 +25,10 @@ export interface Message {
   senderId: string;
   senderName: string;
   text: string;
-  type: 'text' | 'image';
+  type: 'text' | 'image' | 'audio';
   imageUrl?: string;
+  audioUrl?: string;
+  replyTo?: string;
+  attachments?: { data: string; mimeType: string; name: string }[];
   createdAt: any;
 }

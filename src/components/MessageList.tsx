@@ -52,6 +52,11 @@ export default function MessageList({ messages, currentUser, profile }: MessageL
                   Sil
                 </button>
               )}
+              {msg.replyTo && (
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest ml-2 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
+                  {msg.replyTo} kişisine cevap verildi
+                </span>
+              )}
             </div>
 
             <div
@@ -66,6 +71,11 @@ export default function MessageList({ messages, currentUser, profile }: MessageL
               {msg.type === 'image' && msg.imageUrl && (
                 <div className="mb-3 rounded-lg overflow-hidden border border-zinc-700 shadow-lg">
                   <img src={msg.imageUrl} alt="AI Generated" className="w-full h-auto" />
+                </div>
+              )}
+              {msg.type === 'audio' && msg.audioUrl && (
+                <div className="mb-3">
+                  <audio controls src={msg.audioUrl} className="w-full max-w-[250px] h-10 rounded-lg outline-none" />
                 </div>
               )}
               <div className="prose prose-invert prose-sm max-w-none">

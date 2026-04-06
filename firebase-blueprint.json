@@ -23,9 +23,27 @@
         "name": { "type": "string" },
         "createdBy": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "members": { "type": "array", "items": { "type": "string" } }
+        "members": { "type": "array", "items": { "type": "string" } },
+        "mode": { "type": "string", "enum": ["soft", "good", "angry"] },
+        "messageCount": { "type": "number" },
+        "aiRole": { "type": "string" }
       },
       "required": ["name", "createdBy", "members"]
+    },
+    "Invitation": {
+      "title": "Invitation",
+      "description": "Represents a chat room invitation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "roomId": { "type": "string" },
+        "roomName": { "type": "string" },
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["roomId", "roomName", "senderId", "receiverId", "status"]
     },
     "Message": {
       "title": "Message",
@@ -37,17 +55,67 @@
         "senderId": { "type": "string" },
         "senderName": { "type": "string" },
         "text": { "type": "string" },
-        "type": { "type": "string", "enum": ["text", "image"] },
+        "type": { "type": "string", "enum": ["text", "image", "audio"] },
         "imageUrl": { "type": "string" },
+        "audioUrl": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["roomId", "senderId", "text", "type"]
+    },
+    "Memory": {
+      "title": "Memory",
+      "description": "Stores long-term memories for the user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "text"]
+    },
+    "UserPreference": {
+      "title": "User Preference",
+      "description": "Stores user preferences like persona and mood.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "persona": { "type": "string", "enum": ["professional", "joyful", "critic"] },
+        "interests": { "type": "array", "items": { "type": "string" } },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId"]
+    },
+    "Reminder": {
+      "title": "Reminder",
+      "description": "Stores user reminders.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "text": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "completed": { "type": "boolean" }
+      },
+      "required": ["userId", "text", "dueDate"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "User profiles."
+    },
+    "/users/{userId}/preferences": {
+      "schema": "UserPreference",
+      "description": "User preferences."
+    },
+    "/users/{userId}/memories": {
+      "schema": "Memory",
+      "description": "User memories."
+    },
+    "/users/{userId}/reminders": {
+      "schema": "Reminder",
+      "description": "User reminders."
     },
     "/rooms/{roomId}": {
       "schema": "ChatRoom",
@@ -56,6 +124,10 @@
     "/rooms/{roomId}/messages/{messageId}": {
       "schema": "Message",
       "description": "Messages within a room."
+    },
+    "/invitations/{invitationId}": {
+      "schema": "Invitation",
+      "description": "Chat room invitations."
     }
   }
 }

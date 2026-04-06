@@ -8,8 +8,20 @@ service cloud.firestore {
     // Collection: users
     // Fields: uid, email, displayName, photoURL, role, createdAt
     //
+    // Collection: users/{userId}/preferences
+    // Fields: persona, updatedAt
+    //
+    // Collection: users/{userId}/memories
+    // Fields: userId, text, createdAt
+    //
+    // Collection: users/{userId}/reminders
+    // Fields: userId, text, dueDate, completed
+    //
     // Collection: rooms
-    // Fields: id, name, createdBy, createdAt, members (array)
+    // Fields: id, name, createdBy, createdAt, members (array), mode, messageCount, aiRole, isPermanentMemoryEnabled
+    //
+    // Collection: invitations
+    // Fields: id, roomId, roomName, senderId, receiverId, status, createdAt
     //
     // Collection: rooms/{roomId}/messages
     // Fields: id, roomId, senderId, senderName, text, type, imageUrl, createdAt
@@ -25,48 +37,90 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    function isAdminOrModerator() {
+    function isAdmin() {
       return isAuthenticated() && 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'moderator']) ||
-         (request.auth.token.email == "aliburakmumcuoglu31@gmail.com");
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+         (request.auth.token.email == "aliburakmumcuoglu31@gmail.com" && request.auth.token.email_verified == true));
     }
 
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'email', 'role']) &&
              data.uid is string && data.email is string &&
-             data.role in ['admin', 'moderator', 'user'];
+             data.role in ['admin', 'user'] &&
+             (!('displayName' in data) || data.displayName is string) &&
+             (!('photoURL' in data) || data.photoURL is string);
     }
 
     function isValidRoom(data) {
       return data.keys().hasAll(['name', 'createdBy', 'members']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             data.members is list && data.members.size() <= 30;
+             data.members is list && data.members.size() <= 100 &&
+             (!('mode' in data) || data.mode in ['normal', 'soft', 'good', 'angry', 'brainstorm', 'game', 'debug', 'trend']) &&
+             (!('messageCount' in data) || data.messageCount is number) &&
+             (!('aiRole' in data) || data.aiRole is string) &&
+             (!('isPermanentMemoryEnabled' in data) || data.isPermanentMemoryEnabled is bool);
     }
 
     function isValidMessage(data) {
       return data.keys().hasAll(['roomId', 'senderId', 'text', 'type']) &&
-             data.text is string && data.text.size() < 5000;
+             data.text is string && data.text.size() < 10000 &&
+             data.type in ['text', 'image', 'audio', 'music'] &&
+             (!('senderName' in data) || data.senderName is string);
+    }
+
+    function isValidInvitation(data) {
+      return data.keys().hasAll(['roomId', 'roomName', 'senderId', 'receiverId', 'status']) &&
+             data.status in ['pending', 'accepted', 'declined'];
+    }
+
+    function isValidPreference(data) {
+      return (!('persona' in data) || data.persona in ['professional', 'joyful', 'critic']);
     }
 
     // Rules
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdminOrModerator());
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdminOrModerator());
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+
+      match /preferences/{prefId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && isValidPreference(request.resource.data);
+      }
+
+      match /memories/{memoryId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /reminders/{reminderId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     match /rooms/{roomId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidRoom(request.resource.data);
-      allow update: if isAuthenticated() && (request.auth.uid in resource.data.members || isAdminOrModerator());
-      allow delete: if isAdminOrModerator() || (isAuthenticated() && resource.data.createdBy == request.auth.uid);
+      allow update: if isAuthenticated() && isValidRoom(request.resource.data) && (
+        request.auth.uid in resource.data.members || 
+        isAdmin() ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']) &&
+         request.auth.uid in request.resource.data.members)
+      );
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.createdBy == request.auth.uid);
 
       match /messages/{messageId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated() && isValidMessage(request.resource.data);
-        allow delete: if isAdminOrModerator() || (isAuthenticated() && resource.data.senderId == request.auth.uid);
+        allow delete: if isAdmin() || (isAuthenticated() && resource.data.senderId == request.auth.uid);
       }
+    }
+
+    match /invitations/{invitationId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow create: if isAuthenticated() && isValidInvitation(request.resource.data) && request.resource.data.senderId == request.auth.uid;
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.receiverId || request.auth.uid == resource.data.senderId);
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
     }
   }
 }

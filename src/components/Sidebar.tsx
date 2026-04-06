@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { ChatRoom, UserProfile } from '../types';
 import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp, query, onSnapshot } from 'firebase/firestore';
-import { Plus, Hash, User as UserIcon, X, Check, Users } from 'lucide-react';
+import { collection, addDoc, serverTimestamp, query, onSnapshot, deleteDoc, doc, writeBatch, getDocs, where, updateDoc, arrayUnion } from 'firebase/firestore';
+import { Plus, Hash, User as UserIcon, X, Check, Users, Trash2, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface SidebarProps {
@@ -19,6 +19,9 @@ export default function Sidebar({ rooms, activeRoom, setActiveRoom, user, onClos
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [invitations, setInvitations] = useState<any[]>([]);
+  const [isInvitesOpen, setIsInvitesOpen] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'users'));
@@ -31,6 +34,14 @@ export default function Sidebar({ rooms, activeRoom, setActiveRoom, user, onClos
     return () => unsubscribe();
   }, [user.uid]);
 
+  useEffect(() => {
+    const q = query(collection(db, 'invitations'), where('receiverId', '==', user.uid), where('status', '==', 'pending'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setInvitations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, [user.uid]);
+
   const handleCreateRoom = async () => {
     if (!newRoomName.trim()) return;
 
@@ -39,14 +50,63 @@ export default function Sidebar({ rooms, activeRoom, setActiveRoom, user, onClos
         name: newRoomName.trim(),
         createdBy: user.uid,
         createdAt: serverTimestamp(),
-        members: [user.uid, ...selectedUsers],
+        members: [user.uid],
+        mode: 'good',
+        messageCount: 0
       };
-      await addDoc(collection(db, 'rooms'), roomData);
+      const roomRef = await addDoc(collection(db, 'rooms'), roomData);
+      
+      if (selectedUsers.length > 0) {
+        const batch = writeBatch(db);
+        selectedUsers.forEach(uid => {
+          const inviteRef = doc(collection(db, 'invitations'));
+          batch.set(inviteRef, {
+            roomId: roomRef.id,
+            roomName: newRoomName.trim(),
+            senderId: user.uid,
+            receiverId: uid,
+            status: 'pending',
+            createdAt: serverTimestamp()
+          });
+        });
+        await batch.commit();
+      }
+
       setNewRoomName('');
       setSelectedUsers([]);
       setIsModalOpen(false);
     } catch (error) {
       console.error("Room creation error:", error);
+    }
+  };
+
+  const handleDeleteRoom = (roomId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRoomToDelete(roomId);
+  };
+
+  const handleAcceptInvite = async (invite: any) => {
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'rooms', invite.roomId), {
+        members: arrayUnion(user.uid)
+      });
+      batch.update(doc(db, 'invitations', invite.id), {
+        status: 'accepted'
+      });
+      await batch.commit();
+    } catch (error) {
+      console.error("Accept invite error:", error);
+    }
+  };
+
+  const handleDeclineInvite = async (inviteId: string) => {
+    try {
+      await updateDoc(doc(db, 'invitations', inviteId), {
+        status: 'declined'
+      });
+    } catch (error) {
+      console.error("Decline invite error:", error);
     }
   };
 
@@ -78,6 +138,42 @@ export default function Sidebar({ rooms, activeRoom, setActiveRoom, user, onClos
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
+        {invitations.length > 0 && (
+          <div className="mb-6">
+            <button 
+              onClick={() => setIsInvitesOpen(!isInvitesOpen)}
+              className="w-full flex items-center justify-between p-3 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-400 hover:bg-blue-600/30 transition-all"
+            >
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 animate-bounce" />
+                <span className="text-xs font-bold uppercase tracking-widest">Gelen İstekler</span>
+              </div>
+              <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black">{invitations.length}</span>
+            </button>
+            
+            <AnimatePresence>
+              {isInvitesOpen && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden mt-2 space-y-2"
+                >
+                  {invitations.map(invite => (
+                    <div key={invite.id} className="p-3 bg-zinc-900/80 border border-white/5 rounded-xl flex flex-col gap-2">
+                      <p className="text-xs text-zinc-300"><span className="font-bold text-white">{invite.roomName}</span> odasına davet edildin.</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleAcceptInvite(invite)} className="flex-1 py-1.5 bg-green-600/20 hover:bg-green-600/40 text-green-400 text-[10px] font-black uppercase rounded-lg transition-all">Kabul Et</button>
+                        <button onClick={() => handleDeclineInvite(invite.id)} className="flex-1 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-[10px] font-black uppercase rounded-lg transition-all">Reddet</button>
+                      </div>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
         <div>
           <div className="flex items-center justify-between mb-4 px-2">
             <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em]">Odalar</h3>
@@ -102,25 +198,37 @@ export default function Sidebar({ rooms, activeRoom, setActiveRoom, user, onClos
               </div>
             ) : (
               rooms.map((room) => (
-                <button
+                <div
                   key={room.id}
-                  onClick={() => {
-                    setActiveRoom(room);
-                    if (onClose) onClose();
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
                     activeRoom?.id === room.id 
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' 
                       : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'
                   }`}
                 >
-                  <div className={`w-2 h-2 rounded-full ${activeRoom?.id === room.id ? 'bg-white' : 'bg-zinc-700 group-hover:bg-zinc-500'}`} />
-                  <span className="truncate flex-1 text-left">{room.name}</span>
-                  <div className="flex items-center gap-1 opacity-50 text-[10px]">
-                    <Users className="w-3 h-3" />
-                    <span>{room.members.length}</span>
+                  <button
+                    onClick={() => {
+                      setActiveRoom(room);
+                      if (onClose) onClose();
+                    }}
+                    className="flex-1 flex items-center gap-3 truncate"
+                  >
+                    <div className={`w-2 h-2 rounded-full ${activeRoom?.id === room.id ? 'bg-white' : 'bg-zinc-700 group-hover:bg-zinc-500'}`} />
+                    <span className="truncate text-left">{room.name}</span>
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 opacity-50 text-[10px]">
+                      <Users className="w-3 h-3" />
+                      <span>{room.members.length}</span>
+                    </div>
+                    <div 
+                      onClick={(e) => handleDeleteRoom(room.id, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all z-20 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </div>
                   </div>
-                </button>
+                </div>
               ))
             )}
           </div>
@@ -249,6 +357,57 @@ export default function Sidebar({ rooms, activeRoom, setActiveRoom, user, onClos
                   className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl transition-all shadow-xl shadow-blue-900/20 active:scale-[0.98]"
                 >
                   Oluştur
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {roomToDelete && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-sm bg-zinc-900/60 backdrop-blur-2xl border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl relative z-10"
+            >
+              <div className="p-6 text-center space-y-4">
+                <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-8 h-8 text-red-500" />
+                </div>
+                <h2 className="text-xl font-black text-white tracking-tight">Odayı Sil</h2>
+                <p className="text-sm text-zinc-400">Bu odayı silmek istediğine emin misin patron? Bu işlem geri alınamaz.</p>
+              </div>
+              <div className="p-6 bg-zinc-900/50 border-t border-zinc-800 flex gap-3">
+                <button 
+                  onClick={() => setRoomToDelete(null)}
+                  className="flex-1 py-3 bg-zinc-800/60 hover:bg-zinc-700/80 text-zinc-300 font-black uppercase tracking-widest text-xs rounded-2xl transition-all border border-white/5"
+                >
+                  İptal
+                </button>
+                <button 
+                  onClick={async () => {
+                    if (!roomToDelete) return;
+                    try {
+                      const messagesRef = collection(db, `rooms/${roomToDelete}/messages`);
+                      const messagesSnapshot = await getDocs(messagesRef);
+                      const batch = writeBatch(db);
+                      messagesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+                      batch.delete(doc(db, 'rooms', roomToDelete));
+                      await batch.commit();
+                      setRoomToDelete(null);
+                      if (activeRoom?.id === roomToDelete) {
+                        setActiveRoom(null as any);
+                      }
+                    } catch (error) {
+                      console.error("Delete room error:", error);
+                    }
+                  }}
+                  className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl transition-all shadow-xl shadow-red-900/20 active:scale-[0.98]"
+                >
+                  Sil
                 </button>
               </div>
             </motion.div>

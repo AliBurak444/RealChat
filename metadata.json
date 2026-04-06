@@ -1,5 +1,5 @@
 {
   "name": "RealChat",
   "description": "Modern ve profesyonel sohbet platformu.",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["microphone"]
 }
