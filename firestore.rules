@@ -114,6 +114,18 @@ service cloud.firestore {
         allow create: if isAuthenticated() && isValidMessage(request.resource.data);
         allow delete: if isAdmin() || (isAuthenticated() && resource.data.senderId == request.auth.uid);
       }
+
+      match /liveSession/{sessionId} {
+        allow read, write: if isAuthenticated();
+        
+        match /peers/{peerId} {
+          allow read, write: if isAuthenticated();
+          
+          match /signals/{signalId} {
+            allow read, write: if isAuthenticated();
+          }
+        }
+      }
     }
 
     match /invitations/{invitationId} {

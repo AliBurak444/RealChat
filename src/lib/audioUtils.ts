@@ -1,3 +1,39 @@
+export class AudioMixer {
+  private context: AudioContext;
+  private destination: MediaStreamAudioDestinationNode;
+  private sources: Map<string, MediaStreamAudioSourceNode> = new Map();
+
+  constructor() {
+    this.context = new AudioContext();
+    this.destination = this.context.createMediaStreamDestination();
+  }
+
+  addStream(id: string, stream: MediaStream) {
+    if (this.sources.has(id)) return;
+    const source = this.context.createMediaStreamSource(stream);
+    source.connect(this.destination);
+    this.sources.set(id, source);
+  }
+
+  removeStream(id: string) {
+    const source = this.sources.get(id);
+    if (source) {
+      source.disconnect();
+      this.sources.delete(id);
+    }
+  }
+
+  getMixedStream(): MediaStream {
+    return this.destination.stream;
+  }
+
+  stop() {
+    this.sources.forEach(source => source.disconnect());
+    this.sources.clear();
+    this.context.close();
+  }
+}
+
 export class AudioStreamer {
   private context: AudioContext | null = null;
   private stream: MediaStream | null = null;
@@ -5,12 +41,17 @@ export class AudioStreamer {
   private source: MediaStreamAudioSourceNode | null = null;
   private onAudioData: (base64: string) => void;
 
-  constructor(onAudioData: (base64: string) => void) {
+  constructor(onAudioData: (base64: string) => void, stream?: MediaStream) {
     this.onAudioData = onAudioData;
+    if (stream) {
+      this.stream = stream;
+    }
   }
 
   async start() {
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!this.stream) {
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
     this.context = new AudioContext({ sampleRate: 16000 });
     this.source = this.context.createMediaStreamSource(this.stream);
     this.processor = this.context.createScriptProcessor(4096, 1, 1);
@@ -42,6 +83,10 @@ export class AudioStreamer {
     this.processor.connect(this.context.destination);
   }
 
+  getStream(): MediaStream | null {
+    return this.stream;
+  }
+
   stop() {
     if (this.processor) {
       this.processor.disconnect();
@@ -65,9 +110,15 @@ export class AudioStreamer {
 export class AudioPlayer {
   private context: AudioContext | null = null;
   private nextTime: number = 0;
+  private destination: MediaStreamAudioDestinationNode | null = null;
 
   constructor() {
     this.context = new AudioContext({ sampleRate: 24000 }); // Gemini TTS usually 24kHz
+    this.destination = this.context.createMediaStreamDestination();
+  }
+
+  getStream(): MediaStream | null {
+    return this.destination?.stream || null;
   }
 
   playBase64Pcm(base64: string) {
@@ -92,6 +143,9 @@ export class AudioPlayer {
     const source = this.context.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(this.context.destination);
+    if (this.destination) {
+      source.connect(this.destination);
+    }
 
     if (this.nextTime < this.context.currentTime) {
       this.nextTime = this.context.currentTime;
@@ -104,6 +158,7 @@ export class AudioPlayer {
     if (this.context) {
       this.context.close();
       this.context = new AudioContext({ sampleRate: 24000 });
+      this.destination = this.context.createMediaStreamDestination();
       this.nextTime = 0;
     }
   }
@@ -112,6 +167,7 @@ export class AudioPlayer {
     if (this.context) {
       this.context.close();
       this.context = null;
+      this.destination = null;
     }
   }
 }
