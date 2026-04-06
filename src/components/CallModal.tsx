@@ -91,6 +91,11 @@ export default function CallModal({ isOpen, onClose, roomName, mode, roomId, use
                 playerRef.current.playBase64Pcm(base64Audio);
               }
 
+              const textPart = message.serverContent?.modelTurn?.parts?.find(p => p.text)?.text;
+              if (textPart) {
+                outputTranscriptionRef.current += textPart;
+              }
+
               // Handle transcriptions
               if (message.serverContent?.inputTranscription) {
                 const text = message.serverContent.inputTranscription.text || '';
@@ -109,12 +114,31 @@ export default function CallModal({ isOpen, onClose, roomName, mode, roomId, use
                   outputTranscriptionRef.current = '';
                 }
               }
+
+              if (message.serverContent?.turnComplete || message.serverContent?.interrupted) {
+                if (inputTranscriptionRef.current.trim()) {
+                  saveTranscription(inputTranscriptionRef.current, 'user');
+                  inputTranscriptionRef.current = '';
+                }
+                if (outputTranscriptionRef.current.trim()) {
+                  saveTranscription(outputTranscriptionRef.current, 'ai');
+                  outputTranscriptionRef.current = '';
+                }
+              }
             },
             onerror: (err) => {
               console.error("Live API Error:", err);
               if (isMounted) setError("Bağlantı hatası oluştu.");
             },
             onclose: () => {
+              if (inputTranscriptionRef.current.trim()) {
+                saveTranscription(inputTranscriptionRef.current, 'user');
+                inputTranscriptionRef.current = '';
+              }
+              if (outputTranscriptionRef.current.trim()) {
+                saveTranscription(outputTranscriptionRef.current, 'ai');
+                outputTranscriptionRef.current = '';
+              }
               if (isMounted) onClose();
             }
           },
